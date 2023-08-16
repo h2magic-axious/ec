@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Join The Encrypt Chat</title>
+</head>
+<body>
+<h2>Entry Your Key</h2>
+<label>
+    <input type="text">
+</label>
+<button type="button" id="join">Join</button>
+<button type="button" id="random">Random</button>
+<script>
+    const ipt = document.querySelector("input")
+
+    document.querySelector("#join").addEventListener("click", () => {
+        const value = ipt.value
+        fetch("/join", {
+            method: "POST", body: JSON.stringify({
+                key: value
+            })
+        }).then(response => response.json()).then(result => {
+            let expire = 1000 * 3600 * 24
+            let date = new Date()
+            date.setTime(date.getTime() + expire)
+            document.cookie = `pem=yes;domain=${window.location.hostname};expires=${date};path=/`
+            localStorage.setItem("pem", result)
+            localStorage.setItem("key", value)
+            window.location.href = "/"
+        })
+    })
+
+    document.querySelector("#random").addEventListener("click", () => {
+        fetch("/random").then(response => response.json()).then(result => {
+            ipt.value = result
+        })
+    })
+</script>
+</body>
+</html>
