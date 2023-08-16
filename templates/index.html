@@ -24,35 +24,28 @@
 <body>
 
 <div class="container">
-    <textarea id="upperTextarea" rows="10" cols="30" disabled></textarea>
-    <textarea id="lowerTextarea" rows="10" cols="5"></textarea>
+    <label for="upperTextarea"></label>
+    <textarea id="upperTextarea" rows="30" disabled></textarea>
+    <label for="lowerTextarea"></label>
+    <textarea id="lowerTextarea" rows="5"></textarea>
 </div>
 
-<!--
-<label for="box"></label>
-<textarea name="" id="box" cols="30" rows="10" disabled></textarea>
-
-<label for="entry"></label>
-<textarea name="" id="entry" cols="30" rows="10"></textarea>
--->
 <script>
-    /*
-    const chatBox = document.querySelector("#box")
-    const entry = document.querySelector("#entry")
+    const upperTextarea = document.querySelector("#upperTextarea")
+    const lowerTextarea = document.querySelector("#lowerTextarea")
 
     function addMessage(message) {
-        chatBox.value += `${message}\n`;
-        chatBox.scrollTop = chatBox.scrollHeight; // 滚动到底部
+        upperTextarea.value += `${message}\n`;
+        upperTextarea.scrollTop = upperTextarea.scrollHeight; // 滚动到底部
     }
 
-    entry.addEventListener("keypress", event => {
+    lowerTextarea.addEventListener("keypress", event => {
         if (event.key === "Enter") {
             event.preventDefault()
-            addMessage(entry.value)
-            entry.value = ""
+            addMessage(lowerTextarea.value)
+            lowerTextarea.value = ""
         }
     })
-     */
 </script>
 </body>
 </html>
