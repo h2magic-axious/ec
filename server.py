@@ -1,4 +1,7 @@
+import asyncio
 import os
+import random
+from collections import defaultdict
 from typing import Dict
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +9,15 @@ from starlette.responses import RedirectResponse
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+
+from starlette.websockets import WebSocket
+
 from encrypt import Encryptor
+from ws import ws_handler
 
 BASE_DIR = Path(__file__).parent.absolute()
 Template = Jinja2Templates(directory=BASE_DIR.joinpath("templates"))
-PEM_MAP: Dict[str, Encryptor] = dict()
+PEM_MAP: Dict[str, Dict[str, Encryptor]] = defaultdict(dict)
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -58,8 +65,12 @@ async def login(request: Request):
 async def join(request: Request):
     body = await request.json()
     key = body["key"]
-    PEM_MAP[key] = (e := Encryptor())
-    return e.serialize()
+    sec = os.urandom(random.randint(5, 10)).hex()
+    PEM_MAP[key][sec] = (e := Encryptor())
+    return {
+        "rsa": e.serialize(),
+        "sec": sec
+    }
 
 
 @app.get("/random")
@@ -70,3 +81,10 @@ async def random_key(request: Request):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return Template.TemplateResponse("index.html", {"request": request})
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, key=None, sec=None):
+    asyncio.create_task(
+        await asyncio.to_thread(ws_handler, websocket, key, sec)
+    )

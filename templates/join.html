@@ -25,8 +25,9 @@
             let date = new Date()
             date.setTime(date.getTime() + expire)
             document.cookie = `pem=yes;domain=${window.location.hostname};expires=${date};path=/`
-            localStorage.setItem("pem", result)
+            localStorage.setItem("rsa", result["rsa"])
             localStorage.setItem("key", value)
+            localStorage.setItem("sec", result["sec"])
             window.location.href = "/"
         })
     })
