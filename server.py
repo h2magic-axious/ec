@@ -18,10 +18,12 @@ from encrypt import Encryptor
 BASE_DIR = Path(__file__).parent.absolute()
 Template = Jinja2Templates(directory=BASE_DIR.joinpath("templates"))
 
-PEM_MAP: Dict[str, Dict[str, Encryptor]] = defaultdict(dict)
+PERSONAL_ENCRYPTOR_MAP: Dict[str, Encryptor] = dict()
 WS_MAP: Dict[str, Dict[str, WebSocket]] = defaultdict(dict)
 
+GATE_ENCRYPTOR = Encryptor()
 WS_LOCK = asyncio.Lock()
+ENCRYPT_LOCK = asyncio.Lock()
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -74,9 +76,12 @@ async def join(request: Request):
     body = await request.json()
     key = body["key"]
     sec = os.urandom(random.randint(5, 10)).hex()
-    PEM_MAP[key][sec] = (e := Encryptor())
+    async with ENCRYPT_LOCK:
+        PERSONAL_ENCRYPTOR_MAP[sec] = (e := Encryptor())
+
     return {
-        "rsa": e.serialize(),
+        "rsa0": GATE_ENCRYPTOR.serialize(),
+        "rsa1": e.serialize(),
         "sec": sec
     }
 
@@ -102,16 +107,31 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_json()
-            k = data['key']
-            op = data['op']
+            key = data["key"]
+            sec = data["sec"]
+            op = data["op"]
 
             async with WS_LOCK:
                 if op == "join":
-                    WS_MAP[k][data["sec"]] = websocket
-                    await broadcast(k, f"[{str_now()}] 有人加入")
+                    WS_MAP[key][sec := data["sec"]] = websocket
+                    await broadcast(key, f"[{str_now()}] 有人加入")
 
                 if op == "tolk":
-                    await broadcast(k, f"[{str_now()}] {data['msg']}")
+                    text = data["msg"]
+                    print(text)
+                    async with ENCRYPT_LOCK:
+                        encryptor = PERSONAL_ENCRYPTOR_MAP[sec]
+                        print(encryptor.decrypt(text))
+
+                    await broadcast(key, f"[{str_now()}] {data['msg']}")
+
+                if op == "leave":
+                    del WS_MAP[key][sec := data["sec"]]
+
+                    async with ENCRYPT_LOCK:
+                        del PERSONAL_ENCRYPTOR_MAP[sec]
+
+                    await broadcast(key, f"{str_now()} 有人离开")
 
     except Exception as e:
         print(e)

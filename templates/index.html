@@ -35,10 +35,22 @@
     const lowerTextarea = document.querySelector("#lowerTextarea")
     const key = localStorage.getItem("key")
     const sec = localStorage.getItem("sec")
+    const rsa0 = localStorage.getItem("rsa0")
+    const rsa1 = localStorage.getItem("rsa1")
 
     function addMessage(message) {
         upperTextarea.value += `${message}\n`;
         upperTextarea.scrollTop = upperTextarea.scrollHeight; // 滚动到底部
+    }
+
+    function e(msg) {
+        const encryptor = new JSEncrypt()
+        encryptor.setPublicKey(rsa1)
+        return encryptor.encrypt(msg)
+    }
+
+    function d(msg) {
+
     }
 
     lowerTextarea.addEventListener("keypress", event => {
@@ -48,13 +60,32 @@
                 op: "tolk",
                 key: key,
                 sec: sec,
-                msg: lowerTextarea.value
+                msg: e(lowerTextarea.value)
             }))
             lowerTextarea.value = ""
         }
     })
 
+    window.addEventListener("beforeunload", event => {
+        event.returnValue = "是否退出?"
+        localStorage.clear()
+        document.cookie = `pem=no;domain=${window.location.hostname};expires=${date};path=/`
+        window.ws.send(
+            JSON.stringify({
+                op: "leave",
+                key: key,
+                sec: sec
+            })
+        )
+        window.ws.close()
+    })
+
     document.addEventListener("DOMContentLoaded", () => {
+        if (!key || !sec || !rsa0 || !rsa1) {
+            window.location.href = "/join"
+        }
+
+
         const ws = new WebSocket(`ws://${window.location.host}/ws`)
         ws.addEventListener("open", event => {
             ws.send(JSON.stringify({
@@ -67,19 +98,9 @@
         ws.addEventListener("message", event => {
             addMessage(event.data)
         })
-
-        ws.addEventListener("close", event => {
-            if (!event.wasClean) {
-                ws.send(JSON.stringify({
-                    op: "leave",
-                    key: key,
-                    sec: sec
-                }))
-            }
-        })
-
         window.ws = ws
     })
 </script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
 </body>
 </html>

@@ -1,7 +1,6 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization, hashes
 
 
 class Encryptor:
@@ -20,7 +19,7 @@ class Encryptor:
         return self.public_key.encrypt(context.encode(), self.__padding)
 
     def decrypt(self, context):
-        return self.private_key.decrypt(context, self.__padding)
+        return self.private_key.decrypt(bytes.fromhex(context), self.__padding)
 
     def serialize(self):
         return self.public_key.public_bytes(
