@@ -33,6 +33,8 @@
 <script>
     const upperTextarea = document.querySelector("#upperTextarea")
     const lowerTextarea = document.querySelector("#lowerTextarea")
+    const key = localStorage.getItem("key")
+    const sec = localStorage.getItem("sec")
 
     function addMessage(message) {
         upperTextarea.value += `${message}\n`;
@@ -42,9 +44,41 @@
     lowerTextarea.addEventListener("keypress", event => {
         if (event.key === "Enter") {
             event.preventDefault()
-            addMessage(lowerTextarea.value)
+            window.ws.send(JSON.stringify({
+                op: "tolk",
+                key: key,
+                sec: sec,
+                msg: lowerTextarea.value
+            }))
             lowerTextarea.value = ""
         }
+    })
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const ws = new WebSocket(`ws://${window.location.host}/ws`)
+        ws.addEventListener("open", event => {
+            ws.send(JSON.stringify({
+                op: "join",
+                key: key,
+                sec: sec
+            }))
+        })
+
+        ws.addEventListener("message", event => {
+            addMessage(event.data)
+        })
+
+        ws.addEventListener("close", event => {
+            if (!event.wasClean) {
+                ws.send(JSON.stringify({
+                    op: "leave",
+                    key: key,
+                    sec: sec
+                }))
+            }
+        })
+
+        window.ws = ws
     })
 </script>
 </body>

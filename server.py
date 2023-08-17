@@ -1,8 +1,9 @@
 import asyncio
+import datetime
 import os
 import random
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, List
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
@@ -13,11 +14,14 @@ from pathlib import Path
 from starlette.websockets import WebSocket
 
 from encrypt import Encryptor
-from ws import ws_handler
 
 BASE_DIR = Path(__file__).parent.absolute()
 Template = Jinja2Templates(directory=BASE_DIR.joinpath("templates"))
+
 PEM_MAP: Dict[str, Dict[str, Encryptor]] = defaultdict(dict)
+WS_MAP: Dict[str, Dict[str, WebSocket]] = defaultdict(dict)
+
+WS_LOCK = asyncio.Lock()
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -27,6 +31,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+
+def str_now():
+    return datetime.datetime.now().strftime('%Y-%d-%m %H:%M:%S')
 
 
 def try_to_do(func):
@@ -83,8 +91,27 @@ async def index(request: Request):
     return Template.TemplateResponse("index.html", {"request": request})
 
 
+async def broadcast(key, msg):
+    for ws in WS_MAP[key].values():
+        await ws.send_text(msg)
+
+
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, key=None, sec=None):
-    asyncio.create_task(
-        await asyncio.to_thread(ws_handler, websocket, key, sec)
-    )
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            k = data['key']
+            op = data['op']
+
+            async with WS_LOCK:
+                if op == "join":
+                    WS_MAP[k][data["sec"]] = websocket
+                    await broadcast(k, f"[{str_now()}] 有人加入")
+
+                if op == "tolk":
+                    await broadcast(k, f"[{str_now()}] {data['msg']}")
+
+    except Exception as e:
+        print(e)
