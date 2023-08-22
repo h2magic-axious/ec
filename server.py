@@ -100,7 +100,6 @@ async def ws_handler(websocket: WebSocket):
 
         while True:
             data = await websocket.receive_json()
-            print("接收消息: ", data)
 
             key = data["key"]
             sec = data["sec"]
