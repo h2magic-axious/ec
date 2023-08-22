@@ -11,7 +11,7 @@ from starlette.responses import RedirectResponse
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketDisconnect
 from reference import WithLock
 from encrypt import Encryptor
 
@@ -24,8 +24,11 @@ PERSONAL_WS_MAP.collections = defaultdict(dict)
 
 # 用户的 密钥 映射表
 PERSONAL_EC_MAP = WithLock()
+
 # 房间的 密钥 映射表
 ROOM_EC_MAP = WithLock()
+# 房间用户表
+ROOM_USER_MAP = WithLock()
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -127,7 +130,10 @@ async def ws_handler(websocket: WebSocket):
             async with PERSONAL_WS_MAP:
                 if op == "join":
                     PERSONAL_WS_MAP.collections[key][sec] = websocket
-                    text = room_encryptor.encrypt(f"[{str_now()}] 有人加入")
+                    websocket.sec = sec
+                    websocket.room = key
+
+                    text = room_encryptor.encrypt(f"[{str_now()}] 【系统消息】\n有人加入")
                     await broadcast(key, text)
 
                 if op == "tolk":
@@ -135,14 +141,20 @@ async def ws_handler(websocket: WebSocket):
                         encryptor = PERSONAL_EC_MAP.collections[sec]
 
                     text = encryptor.decrypt(data["msg"])
-                    encrypt_text = room_encryptor.encrypt(f"[{str_now()}] {text}")
+                    encrypt_text = room_encryptor.encrypt(f"[{str_now()}] 【{sec}】\n{text}")
 
                     await broadcast(key, encrypt_text)
-
-                if op == "leave":
-                    print("Leave: ", key)
-                    await broadcast(key, f"{str_now()} 有人离开")
     except Exception as e:
+        is_empty = False
+
+        async with PERSONAL_WS_MAP:
+            del PERSONAL_WS_MAP.collections[websocket.sec]
+
+        async with ROOM_EC_MAP:
+            room_encryptor = ROOM_EC_MAP.collections[websocket.room]
+            text = room_encryptor.encrypt(f"[{str_now()}] 【系统消息】\n有人离开")
+            await broadcast(websocket.room, text)
+
         print(e)
 
 
