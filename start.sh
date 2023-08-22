@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 DIR=`pwd`
+PORT=3333
+
+kill -9 `lsof -i:3333 -t`
 
 cd $DIR
 
