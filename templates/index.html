@@ -65,6 +65,7 @@
 
     window.addEventListener("beforeunload", event => {
         event.returnValue = "是否退出?"
+        let date = new Date()
         localStorage.clear()
         document.cookie = `pem=no;domain=${window.location.hostname};expires=${date};path=/`
         window.ws.send(
