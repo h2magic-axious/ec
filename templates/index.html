@@ -63,20 +63,6 @@
         }
     })
 
-    window.addEventListener("beforeunload", event => {
-        event.returnValue = "是否退出?"
-        localStorage.clear()
-        document.cookie = `pem=no;domain=${window.location.hostname};expires=${date};path=/`
-        window.ws.send(
-            JSON.stringify({
-                op: "leave",
-                key: key,
-                sec: sec
-            })
-        )
-        window.ws.close()
-    })
-
     document.addEventListener("DOMContentLoaded", () => {
         if (!key || !sec || !rsa0 || !rsa1) {
             window.location.href = "/join"
@@ -92,9 +78,16 @@
             }))
         })
 
+        ws.addEventListener("close", event => {
+            let date = new Date()
+            localStorage.clear()
+            document.cookie = `pem=no;domain=${window.location.hostname};expires=${date};path=/`
+        })
+
         ws.addEventListener("message", event => {
             addMessage(event.data)
         })
+
         window.ws = ws
     })
 </script>

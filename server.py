@@ -145,8 +145,6 @@ async def ws_handler(websocket: WebSocket):
 
                     await broadcast(key, encrypt_text)
     except Exception as e:
-        is_empty = False
-
         async with PERSONAL_WS_MAP:
             del PERSONAL_WS_MAP.collections[websocket.sec]
 
