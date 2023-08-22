@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Encrypt Chat</title>
+    <title>口出狂言</title>
     <style>
 
         .container {
@@ -39,28 +39,25 @@
     const rsa1 = localStorage.getItem("rsa1")
 
     function addMessage(message) {
-        upperTextarea.value += `${message}\n`;
+        const cryptor = new JSEncrypt()
+        cryptor.setPrivateKey(rsa0)
+        let text = cryptor.decrypt(message)
+        upperTextarea.value += `${text}\n`;
         upperTextarea.scrollTop = upperTextarea.scrollHeight; // 滚动到底部
     }
 
-    function e(msg) {
+    lowerTextarea.addEventListener("keypress", event => {
         const encryptor = new JSEncrypt()
         encryptor.setPublicKey(rsa1)
-        return encryptor.encrypt(msg)
-    }
+        let text = encryptor.encrypt(lowerTextarea.value)
 
-    function d(msg) {
-
-    }
-
-    lowerTextarea.addEventListener("keypress", event => {
         if (event.key === "Enter") {
             event.preventDefault()
             window.ws.send(JSON.stringify({
                 op: "tolk",
                 key: key,
                 sec: sec,
-                msg: e(lowerTextarea.value)
+                msg: text
             }))
             lowerTextarea.value = ""
         }

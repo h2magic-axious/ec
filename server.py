@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import datetime
 import os
 import random
@@ -10,20 +11,21 @@ from starlette.responses import RedirectResponse
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-
 from starlette.websockets import WebSocket
-
+from reference import WithLock
 from encrypt import Encryptor
 
 BASE_DIR = Path(__file__).parent.absolute()
 Template = Jinja2Templates(directory=BASE_DIR.joinpath("templates"))
 
-PERSONAL_ENCRYPTOR_MAP: Dict[str, Encryptor] = dict()
-WS_MAP: Dict[str, Dict[str, WebSocket]] = defaultdict(dict)
+# 用户的 ws 连接映射表
+PERSONAL_WS_MAP = WithLock()
+PERSONAL_WS_MAP.collections = defaultdict(dict)
 
-GATE_ENCRYPTOR = Encryptor()
-WS_LOCK = asyncio.Lock()
-ENCRYPT_LOCK = asyncio.Lock()
+# 用户的 密钥 映射表
+PERSONAL_EC_MAP = WithLock()
+# 房间的 密钥 映射表
+ROOM_EC_MAP = WithLock()
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -76,12 +78,20 @@ async def join(request: Request):
     body = await request.json()
     key = body["key"]
     sec = os.urandom(random.randint(5, 10)).hex()
-    async with ENCRYPT_LOCK:
-        PERSONAL_ENCRYPTOR_MAP[sec] = (e := Encryptor())
+
+    async with ROOM_EC_MAP:
+        if key not in ROOM_EC_MAP.collections:
+            ROOM_EC_MAP.collections[key] = Encryptor()
+
+        rsa0 = ROOM_EC_MAP.collections[key].private
+
+    async with PERSONAL_EC_MAP:
+        PERSONAL_EC_MAP.collections[sec] = Encryptor()
+        rsa1 = PERSONAL_EC_MAP.collections[sec].public
 
     return {
-        "rsa0": GATE_ENCRYPTOR.serialize(),
-        "rsa1": e.serialize(),
+        "rsa0": rsa0,
+        "rsa1": rsa1,
         "sec": sec
     }
 
@@ -97,41 +107,45 @@ async def index(request: Request):
 
 
 async def broadcast(key, msg):
-    for ws in WS_MAP[key].values():
+    for ws in PERSONAL_WS_MAP.collections[key].values():
         await ws.send_text(msg)
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
+async def ws_handler(websocket: WebSocket):
     try:
+        await websocket.accept()
+
         while True:
             data = await websocket.receive_json()
             key = data["key"]
             sec = data["sec"]
             op = data["op"]
 
-            async with WS_LOCK:
+            async with ROOM_EC_MAP:
+                room_encryptor = ROOM_EC_MAP.collections[key]
+
+            async with PERSONAL_WS_MAP:
                 if op == "join":
-                    WS_MAP[key][sec := data["sec"]] = websocket
-                    await broadcast(key, f"[{str_now()}] 有人加入")
+                    PERSONAL_WS_MAP.collections[key][sec] = websocket
+                    text = room_encryptor.encrypt(f"[{str_now()}] 有人加入")
+                    await broadcast(key, text)
 
                 if op == "tolk":
-                    text = data["msg"]
-                    print(text)
-                    async with ENCRYPT_LOCK:
-                        encryptor = PERSONAL_ENCRYPTOR_MAP[sec]
-                        print(encryptor.decrypt(text))
+                    async with PERSONAL_EC_MAP:
+                        encryptor = PERSONAL_EC_MAP.collections[sec]
 
-                    await broadcast(key, f"[{str_now()}] {data['msg']}")
+                    text = encryptor.decrypt(data["msg"])
+                    encrypt_text = room_encryptor.encrypt(f"[{str_now()}] {text}")
+
+                    await broadcast(key, encrypt_text)
 
                 if op == "leave":
-                    del WS_MAP[key][sec := data["sec"]]
-
-                    async with ENCRYPT_LOCK:
-                        del PERSONAL_ENCRYPTOR_MAP[sec]
-
+                    print("Leave: ", key)
                     await broadcast(key, f"{str_now()} 有人离开")
-
     except Exception as e:
         print(e)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_handler(websocket)

@@ -1,28 +1,21 @@
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization, hashes
+import base64
+from Crypto import Random
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.PublicKey import RSA
+
+random_generator = Random.new().read
 
 
 class Encryptor:
-    __algorithm = hashes.SHA256()
-    __padding = padding.OAEP(
-        mgf=padding.MGF1(algorithm=__algorithm),
-        algorithm=__algorithm,
-        label=None
-    )
-
     def __init__(self):
-        self.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
-        self.public_key = self.private_key.public_key()
+        self.rsa = RSA.generate(1024, random_generator)
+        self.public = self.rsa.publickey().exportKey().decode()
+        self.private = self.rsa.exportKey().decode()
 
-    def encrypt(self, context: str):
-        return self.public_key.encrypt(context.encode(), self.__padding)
+    def encrypt(self, content: str):
+        cipher = PKCS1_v1_5.new(self.rsa)
+        return base64.b64encode(cipher.encrypt(content.encode())).decode()
 
-    def decrypt(self, context):
-        return self.private_key.decrypt(bytes.fromhex(context), self.__padding)
-
-    def serialize(self):
-        return self.public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        ).decode()
+    def decrypt(self, content: str):
+        cipher = PKCS1_v1_5.new(self.rsa, random_generator)
+        return cipher.decrypt(base64.b64decode(content), random_generator).decode()
