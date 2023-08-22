@@ -1,34 +1,26 @@
-import asyncio
-import base64
 import datetime
 import os
 import random
-from collections import defaultdict
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import RedirectResponse
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
-from starlette.websockets import WebSocket, WebSocketDisconnect
-from reference import WithLock
+from starlette.responses import RedirectResponse
+from starlette.websockets import WebSocket
+
 from encrypt import Encryptor
+from reference import User, Room
 
 BASE_DIR = Path(__file__).parent.absolute()
 Template = Jinja2Templates(directory=BASE_DIR.joinpath("templates"))
 
-# 用户的 ws 连接映射表
-PERSONAL_WS_MAP = WithLock()
-PERSONAL_WS_MAP.collections = defaultdict(dict)
-
-# 用户的 密钥 映射表
-PERSONAL_EC_MAP = WithLock()
-
-# 房间的 密钥 映射表
-ROOM_EC_MAP = WithLock()
-# 房间用户表
-ROOM_USER_MAP = WithLock()
+# User Database
+USER_DB: Dict[str, User] = dict()
+# Room Database
+ROOM_DB: Dict[str, Room] = dict()
 
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
@@ -38,10 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-
-
-def str_now():
-    return datetime.datetime.now().strftime('%Y-%d-%m %H:%M:%S')
 
 
 def try_to_do(func):
@@ -82,19 +70,15 @@ async def join(request: Request):
     key = body["key"]
     sec = os.urandom(random.randint(5, 10)).hex()
 
-    async with ROOM_EC_MAP:
-        if key not in ROOM_EC_MAP.collections:
-            ROOM_EC_MAP.collections[key] = Encryptor()
+    if key not in ROOM_DB:
+        ROOM_DB[key] = Room(key)
 
-        rsa0 = ROOM_EC_MAP.collections[key].private
-
-    async with PERSONAL_EC_MAP:
-        PERSONAL_EC_MAP.collections[sec] = Encryptor()
-        rsa1 = PERSONAL_EC_MAP.collections[sec].public
+    if sec not in USER_DB:
+        USER_DB[sec] = User(sec)
 
     return {
-        "rsa0": rsa0,
-        "rsa1": rsa1,
+        "rsa0": ROOM_DB[key].cryptor.private,
+        "rsa1": USER_DB[sec].cryptor.public,
         "sec": sec
     }
 
@@ -109,50 +93,56 @@ async def index(request: Request):
     return Template.TemplateResponse("index.html", {"request": request})
 
 
-async def broadcast(key, msg):
-    for ws in PERSONAL_WS_MAP.collections[key].values():
-        await ws.send_text(msg)
-
-
 async def ws_handler(websocket: WebSocket):
     try:
         await websocket.accept()
 
         while True:
             data = await websocket.receive_json()
+
             key = data["key"]
             sec = data["sec"]
             op = data["op"]
 
-            async with ROOM_EC_MAP:
-                room_encryptor = ROOM_EC_MAP.collections[key]
+            if not (room := ROOM_DB.get(key)):
+                continue
 
-            async with PERSONAL_WS_MAP:
-                if op == "join":
-                    PERSONAL_WS_MAP.collections[key][sec] = websocket
-                    websocket.sec = sec
-                    websocket.room = key
+            if not (user := USER_DB.get(sec)):
+                continue
 
-                    text = room_encryptor.encrypt(f"[{str_now()}] 【系统消息】\n有人加入")
-                    await broadcast(key, text)
+            if op == "join":
+                user.websocket = websocket
+                user.room = room
 
-                if op == "tolk":
-                    async with PERSONAL_EC_MAP:
-                        encryptor = PERSONAL_EC_MAP.collections[sec]
+                room.users.append(user)
+                await room.broadcast("【系统消息】\n有人加入")
 
-                    text = encryptor.decrypt(data["msg"])
-                    encrypt_text = room_encryptor.encrypt(f"[{str_now()}] 【{sec}】\n{text}")
+            if op == "tolk":
+                text = user.cryptor.decrypt(data["msg"])
+                await room.broadcast(f"【{user.sec}】\n{text}")
 
-                    await broadcast(key, encrypt_text)
     except Exception as e:
-        async with PERSONAL_WS_MAP:
-            del PERSONAL_WS_MAP.collections[websocket.sec]
+        user = None
+        for u in USER_DB.values():
+            if u.websocket == websocket:
+                user = u
+                break
 
-        async with ROOM_EC_MAP:
-            room_encryptor = ROOM_EC_MAP.collections[websocket.room]
-            text = room_encryptor.encrypt(f"[{str_now()}] 【系统消息】\n有人离开")
-            await broadcast(websocket.room, text)
+        if user:
+            try:
+                room = user.room
+                room.users.remove(user)
 
+                del USER_DB[user.sec]
+                if room.is_empty():
+                    del ROOM_DB[room.key]
+                    del room
+                else:
+                    await room.broadcast("【系统消息】\n有人离开")
+
+                del user
+            except Exception as _e:
+                print(_e)
         print(e)
 
 
