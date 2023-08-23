@@ -35,36 +35,27 @@
     const lowerTextarea = document.querySelector("#lowerTextarea")
     const key = localStorage.getItem("key")
     const sec = localStorage.getItem("sec")
-    const rsa0 = localStorage.getItem("rsa0")
-    const rsa1 = localStorage.getItem("rsa1")
 
     function addMessage(message) {
-        const cryptor = new JSEncrypt()
-        cryptor.setPrivateKey(rsa0)
-        let text = cryptor.decrypt(message)
-        upperTextarea.value += `${text}\n`;
+        upperTextarea.value += `${message}\n`
         upperTextarea.scrollTop = upperTextarea.scrollHeight; // 滚动到底部
     }
 
     lowerTextarea.addEventListener("keypress", event => {
-        const encryptor = new JSEncrypt()
-        encryptor.setPublicKey(rsa1)
-        let text = encryptor.encrypt(lowerTextarea.value)
-
         if (event.key === "Enter") {
             event.preventDefault()
             window.ws.send(JSON.stringify({
                 op: "tolk",
                 key: key,
                 sec: sec,
-                msg: text
+                msg: lowerTextarea.value
             }))
             lowerTextarea.value = ""
         }
     })
 
     document.addEventListener("DOMContentLoaded", () => {
-        if (!key || !sec || !rsa0 || !rsa1) {
+        if (!key || !sec) {
             window.location.href = "/join"
         }
 

@@ -1,4 +1,3 @@
-import datetime
 import os
 import random
 from pathlib import Path
@@ -11,7 +10,6 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 from starlette.websockets import WebSocket
 
-from encrypt import Encryptor
 from reference import User, Room
 
 BASE_DIR = Path(__file__).parent.absolute()
@@ -77,8 +75,6 @@ async def join(request: Request):
         USER_DB[sec] = User(sec)
 
     return {
-        "rsa0": ROOM_DB[key].cryptor.private,
-        "rsa1": USER_DB[sec].cryptor.public,
         "sec": sec
     }
 
@@ -118,8 +114,7 @@ async def ws_handler(websocket: WebSocket):
                 await room.broadcast("【系统消息】\n有人加入")
 
             if op == "tolk":
-                text = user.cryptor.decrypt(data["msg"])
-                await room.broadcast(f"【{user.sec}】\n{text}")
+                await room.broadcast(f"【{user.sec}】\n{data['msg']}")
 
     except Exception as e:
         user = None
