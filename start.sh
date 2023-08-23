@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
 DIR=`pwd`
+HOST=127.0.0.1
 PORT=3333
 
-kill -9 `lsof -i:3333 -t`
+kill -9 `lsof -i:$PORT -t`
 
 cd $DIR
 
 source venv/bin/activate
 
-uvicorn server:app --host 0.0.0.0 --port 3333
+uvicorn server:app --host $HOST --port $PORT --reload

@@ -52,7 +52,7 @@ def has_pem(request: Request):
 @app.middleware("http")
 async def process_before_response(request: Request, call_next):
     status, token = has_pem(request)
-    if request.url.path not in ("/join", "/favicon.ico", "/random"):
+    if request.url.path not in ("/join", "/favicon.ico", "/random" ,"/ws"):
         if not status or token is None:
             return RedirectResponse(url="/join", headers={"Context-Type": "text/html"})
 
