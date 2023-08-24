@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
+from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
 from reference import User, Room
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+app.mount("/static", StaticFiles(directory=str(BASE_DIR.joinpath("static"))), name="static")
 
 
 def try_to_do(func):
