@@ -20,9 +20,6 @@
             margin-bottom: 10px;
         }
     </style>
-    <script src="static/rollups/aes.js"></script>
-    <script src="static/components/mode-ecb-min.js"></script>
-    <script src="static/components/pad-nopadding-min.js"></script>
 </head>
 <body>
 
@@ -42,26 +39,8 @@
     const offset = CryptoJS.enc.Utf8.parse("0123456789ASDF")
 
     function addMessage(message) {
-        let text = d(message)
-        upperTextarea.value += `${text}\n`
+        upperTextarea.value += `${message}\n`
         upperTextarea.scrollTop = upperTextarea.scrollHeight; // 滚动到底部
-    }
-
-    function e(message) {
-        const textEncode = CryptoJS.env.Utf8.parse(message)
-        return CryptoJS.AES.encrypt(textEncode, aesSecret, {
-            mode: CryptoJS.mode.CBC,
-            padding: CryptoJS.pad.Pkcs7,
-            iv: offset
-        }).toString()
-    }
-
-    function d(message) {
-        return CryptoJS.AES.decrypt(message, aesSecret, {
-            mode: CryptoJS.mode.CBC,
-            padding: CryptoJS.pad.Pkcs7,
-            iv: offset
-        }).toString(CryptoJS.env.Utf8)
     }
 
     lowerTextarea.addEventListener("keypress", event => {
@@ -71,7 +50,7 @@
                 op: "tolk",
                 key: key,
                 sec: sec,
-                msg: e(lowerTextarea.value)
+                msg: lowerTextarea.value
             }))
             lowerTextarea.value = ""
         }

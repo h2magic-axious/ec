@@ -10,7 +10,6 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
-
 from reference import User, Room
 
 BASE_DIR = Path(__file__).parent.absolute()
@@ -30,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"]
 )
 app.mount("/static", StaticFiles(directory=str(BASE_DIR.joinpath("static"))), name="static")
-
 
 def try_to_do(func):
     def inner(*args, **kwargs):
@@ -124,6 +122,7 @@ async def ws_handler(websocket: WebSocket):
                 user.room = room
 
                 room.users.append(user)
+
                 await room.broadcast("【系统消息】\n有人加入")
 
             if op == "tolk":
