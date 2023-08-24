@@ -28,7 +28,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-app.mount("/static", StaticFiles(directory=str(BASE_DIR.joinpath("static"))), name="static")
+
 
 def try_to_do(func):
     def inner(*args, **kwargs):
