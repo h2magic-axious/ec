@@ -24,7 +24,7 @@ ROOM_DB: Dict[str, Room] = dict()
 app = FastAPI(docs_url=None, redoc_url="/docs", default_response_class=ORJSONResponse)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["ec.55ca.xyz", "127.0.0.1", "172.17.0.1"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
