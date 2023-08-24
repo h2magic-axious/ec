@@ -50,7 +50,7 @@ def has_pem(request: Request):
 @app.middleware("http")
 async def process_before_response(request: Request, call_next):
     status, token = has_pem(request)
-    if request.url.path not in ("/join", "/favicon.ico", "/random" ,"/ws"):
+    if request.url.path not in ("/join", "/favicon.ico", "/random", "/ws"):
         if not status or token is None:
             return RedirectResponse(url="/join", headers={"Context-Type": "text/html"})
 
@@ -114,6 +114,7 @@ async def ws_handler(websocket: WebSocket):
                 await room.broadcast("【系统消息】\n有人加入")
 
             if op == "tolk":
+                print(f"[{user.sec}]: {data['msg']}")
                 await room.broadcast(f"【{user.sec}】\n{data['msg']}")
 
     except Exception as e:
