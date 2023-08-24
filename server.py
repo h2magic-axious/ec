@@ -49,13 +49,13 @@ def has_pem(request: Request):
     return request.cookies.get("pem")
 
 
-def check_whitelist(path):
-    result = False
+def check_necessary(path):
+    result = True
     if path in ("/join", "/favicon.ico", "/random", "/ws"):
-        result = True
+        result = False
 
     if path.startswith("/static"):
-        result = True
+        result = False
 
     return result
 
@@ -63,7 +63,7 @@ def check_whitelist(path):
 @app.middleware("http")
 async def process_before_response(request: Request, call_next):
     status, token = has_pem(request)
-    if check_whitelist(request.url.path):
+    if check_necessary(request.url.path):
         if not status or token is None:
             return RedirectResponse(url="/join", headers={"Context-Type": "text/html"})
 
