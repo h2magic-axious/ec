@@ -123,11 +123,10 @@ async def ws_handler(websocket: WebSocket):
 
                 room.users.append(user)
 
-                await room.broadcast("【系统消息】\n有人加入")
+                await room.broadcast("【有人加入】")
 
             if op == "tolk":
-                print(f"[{user.sec}]: {data['msg']}")
-                await room.broadcast(f"【{user.sec}】\n{data['msg']}")
+                await room.broadcast(data["msg"])
 
     except Exception as e:
         user = None
@@ -146,7 +145,7 @@ async def ws_handler(websocket: WebSocket):
                     del ROOM_DB[room.key]
                     del room
                 else:
-                    await room.broadcast("【系统消息】\n有人离开")
+                    await room.broadcast("【有人离开】")
 
                 del user
             except Exception as _e:
