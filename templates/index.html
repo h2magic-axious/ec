@@ -35,8 +35,6 @@
     const lowerTextarea = document.querySelector("#lowerTextarea")
     const key = localStorage.getItem("key")
     const sec = localStorage.getItem("sec")
-    const aesSecret = CryptoJS.enc.Utf8.parse(key)
-    const offset = CryptoJS.enc.Utf8.parse("0123456789ASDF")
 
     function addMessage(message) {
         upperTextarea.value += `${message}\n`
